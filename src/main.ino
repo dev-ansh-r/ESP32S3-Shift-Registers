@@ -1,65 +1,55 @@
 /*
-  Copyright (c) 2023 Devansh Shukla R
+ * Copyright (c) 2024 Devansh Shukla R
+ *
+ * This code is licensed under the Apache license.
+ * See LICENSE file for more details.
+ * 
+ * /
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
+const int dataPin = 20; /* Q7 */
+const int clockPin = 21; /* CP */
+const int latchPin = 47; /* PL */
 
-  The above copyright notice and this permission notice shall be included in
-  all copies or substantial portions of the Software.
+const int numBits = 8; /* Set to 8 * number of shift registers */
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-  THE SOFTWARE.
-*/
-// Define Connections to 74HC165
+int previousValue = 0; // Stores the previously read value 
 
-// PL pin 1
-int load = 47;
-// CE pin 15
-int clockEnablePin = 19;
-// Q7 pin 7
-int dataIn = 20;
-// CP pin 2
-int clockIn = 21;
+bool buttonPressed = false;
+unsigned long lastDebounceTime = 0; //Stores timestamp of last button change
 
-void setup()
-{
-
-  // Setup Serial Monitor
-  Serial.begin(9600);
-
-  // Setup 74HC165 connections
-  pinMode(load, OUTPUT);
-  pinMode(clockEnablePin, OUTPUT);
-  pinMode(clockIn, OUTPUT);
-  pinMode(dataIn, INPUT);
+void setup() {
+  Serial.begin(115200);
+  pinMode(dataPin, INPUT);
+  pinMode(clockPin, OUTPUT);
+  pinMode(latchPin, OUTPUT);
 }
 
-void loop()
-{
+void loop() {
+  // Step 1: Sample
+  digitalWrite(latchPin, LOW);
+  digitalWrite(latchPin, HIGH);
 
-  // Write pulse to load pin
-  digitalWrite(load, LOW);
-  delayMicroseconds(5);
-  digitalWrite(load, HIGH);
-  delayMicroseconds(5);
+  // Step 2: Shift and compare
+  int newValue = 0;
+  for (int i = 0; i < numBits; i++) {
+    int bit = digitalRead(dataPin);
+    newValue |= (bit << i); // Shift and combine bits into a single value
+    digitalWrite(clockPin, HIGH); // Shift out the next bit
+    digitalWrite(clockPin, LOW);
+  }
 
-  // Get data from 74HC165
-  digitalWrite(clockIn, HIGH);
-  digitalWrite(clockEnablePin, LOW);
-  byte incoming = shiftIn(dataIn, clockIn, LSBFIRST);
-  digitalWrite(clockEnablePin, HIGH);
-
-  // Print to serial monitor
-  Serial.print("Pin States:\r\n");
-  Serial.println(incoming, BIN);
-  delay(200);
+  // Print only if the value has changed
+  if (newValue != previousValue) {
+    Serial.print("Bits: ");
+    for (int i = 0; i < numBits; i++) {
+      if (newValue & (1 << i)) {
+        Serial.print("1");
+      } else {
+        Serial.print("0");
+      }
+    }
+    Serial.println();
+    previousValue = newValue; // Update the previously read value
+  }
+  delay(1000);
 }
